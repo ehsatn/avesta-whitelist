@@ -1,20 +1,17 @@
 export default async (req) => {
-  // Get the destination URL from the query parameter
-  const url = new URL(req.url).searchParams.get('url');
+  const targetUrl = new URL(req.url).searchParams.get('url');
 
-  // Set CORS headers to allow requests from any origin
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 
-  // Handle preflight requests for CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  if (!url) {
+  if (!targetUrl) {
     return new Response('URL parameter is missing', {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
@@ -22,23 +19,31 @@ export default async (req) => {
   }
 
   try {
-    // Fetch the content from the destination URL
-    const fetchResponse = await fetch(url);
+    const fetchOptions = {
+      method: req.method,
+      headers: req.headers,
+      redirect: 'follow',
+    };
+    
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      fetchOptions.body = req.body;
+    }
 
-    // Get the JSON data from the response
-    const data = await fetchResponse.json();
+    const fetchResponse = await fetch(targetUrl, fetchOptions);
 
-    // Create a new response with the correct JSON content type and CORS headers
-    return new Response(JSON.stringify(data, null, 2), {
+    const responseHeaders = new Headers(fetchResponse.headers);
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      responseHeaders.set(key, value);
+    });
+
+    return new Response(fetchResponse.body, {
       status: fetchResponse.status,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      }
+      statusText: fetchResponse.statusText,
+      headers: responseHeaders,
     });
 
   } catch (e) {
-    return new Response(`An error occurred: ${e.message}`, {
+    return new Response(`Proxy error: ${e.message}`, {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
     });
