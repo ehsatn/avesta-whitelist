@@ -1,5 +1,7 @@
 export default async (req) => {
-  const targetUrl = new URL(req.url).searchParams.get('url');
+  const host = req.headers.get('host');
+  const fullUrl = new URL(req.url, `https://${host}`);
+  const targetUrl = fullUrl.searchParams.get('url');
 
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
